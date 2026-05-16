@@ -43,6 +43,9 @@ Com a flag desligada, leituras como servicos, clientes, agenda e disponibilidade
 ## Endpoints
 
 - `GET /health`
+- `GET /privacy`
+- `GET /terms`
+- `GET /data-deletion`
 - `GET /webhooks/whatsapp`
 - `POST /webhooks/whatsapp`
 - `GET /internal/handoffs`

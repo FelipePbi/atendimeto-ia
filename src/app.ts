@@ -4,6 +4,7 @@ import { prisma } from "./db/prisma.js";
 import { AppError, toErrorMessage } from "./lib/errors.js";
 import { redactSensitive } from "./lib/redact.js";
 import { registerInternalRoutes } from "./modules/internal/routes.js";
+import { registerLegalRoutes } from "./modules/legal/routes.js";
 import { registerWhatsAppRoutes } from "./modules/whatsapp/routes.js";
 
 export async function buildApp() {
@@ -27,6 +28,7 @@ export async function buildApp() {
   await app.register(cors, { origin: false });
 
   app.get("/health", async () => ({ ok: true }));
+  await registerLegalRoutes(app);
   await registerWhatsAppRoutes(app, prisma);
   await registerInternalRoutes(app, prisma);
 
