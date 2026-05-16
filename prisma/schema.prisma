@@ -1,0 +1,136 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum MessageDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum ConversationStatus {
+  ACTIVE
+  HUMAN_HANDOFF
+  CLOSED
+}
+
+enum ToolCallStatus {
+  STARTED
+  SUCCEEDED
+  FAILED
+}
+
+enum AppointmentStatus {
+  SCHEDULED
+  RESCHEDULED
+  CANCELLED
+  FAILED
+}
+
+enum HandoffStatus {
+  OPEN
+  RESOLVED
+}
+
+model Conversation {
+  id             String             @id @default(cuid())
+  whatsappPhone  String             @unique
+  customerName   String?
+  currentIntent  String?
+  state          Json?
+  status         ConversationStatus @default(ACTIVE)
+  humanHandoff   Boolean            @default(false)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  messages             Message[]
+  toolCalls            ToolCall[]
+  externalAppointments ExternalAppointment[]
+  handoffs             Handoff[]
+}
+
+model Message {
+  id                String           @id @default(cuid())
+  conversationId    String
+  direction         MessageDirection
+  role              String
+  body              String
+  whatsappMessageId String?          @unique
+  rawPayload        Json?
+  createdAt         DateTime         @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+}
+
+model ProcessedEvent {
+  id                String   @id @default(cuid())
+  whatsappMessageId String   @unique
+  rawPayload        Json?
+  receivedAt        DateTime @default(now())
+}
+
+model ToolCall {
+  id             String         @id @default(cuid())
+  conversationId String
+  name           String
+  arguments      Json
+  result         Json?
+  status         ToolCallStatus @default(STARTED)
+  error          String?
+  createdAt      DateTime       @default(now())
+  completedAt    DateTime?
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+}
+
+model CustomerLink {
+  id                    String   @id @default(cuid())
+  phone                 String   @unique
+  minhaAgendaCustomerId Int?
+  name                  String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+model ExternalAppointment {
+  id                       String            @id @default(cuid())
+  conversationId           String?
+  minhaAgendaAppointmentId Int               @unique
+  customerId               Int
+  serviceId                Int
+  date                     String
+  startTime                String
+  endTime                  String?
+  status                   AppointmentStatus @default(SCHEDULED)
+  payload                  Json?
+  createdAt                DateTime          @default(now())
+  updatedAt                DateTime          @updatedAt
+
+  conversation Conversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+
+  @@index([customerId, date])
+}
+
+model Handoff {
+  id             String        @id @default(cuid())
+  conversationId String?
+  phone          String
+  reason         String
+  summary        String?
+  status         HandoffStatus @default(OPEN)
+  createdAt      DateTime      @default(now())
+  resolvedAt     DateTime?
+
+  conversation Conversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([phone])
+}
