@@ -4,6 +4,6 @@ import { buildApp } from "./app.js";
 const app = await buildApp();
 
 await app.listen({
-  port: env.PORT,
+  port: process.env.API_PORT ? env.API_PORT : env.PORT,
   host: "0.0.0.0"
 });

@@ -168,7 +168,7 @@ function renderPrivacyPolicy(): string {
     </ul>
 
     <h2>3. Compartilhamento e operadores</h2>
-    <p>Para operar o atendimento, dados podem trafegar por serviços de terceiros estritamente necessários, incluindo Meta/WhatsApp Cloud API, Minha Agenda, OpenAI e provedores de hospedagem e banco de dados. Esses terceiros tratam dados conforme suas próprias políticas e conforme as configurações técnicas do serviço.</p>
+    <p>Para operar o atendimento, dados podem trafegar por serviços de terceiros estritamente necessários, incluindo WhatsApp via Evolution Go, Minha Agenda, OpenAI e provedores de hospedagem e banco de dados. Esses terceiros tratam dados conforme suas próprias políticas e conforme as configurações técnicas do serviço.</p>
 
     <h2>4. Base legal e consentimento</h2>
     <p>O tratamento ocorre para executar o atendimento solicitado pela cliente, cumprir obrigações legais ou atender interesses legítimos de segurança e operação. Quando uma cliente envia mensagem ao WhatsApp do negócio, entende-se que ela solicita atendimento naquele canal.</p>
@@ -210,7 +210,7 @@ function renderTermsOfUse(): string {
     <p>Parte do atendimento pode ser automatizada com apoio de inteligência artificial. Casos sensíveis, ambíguos, reclamações, urgências, mensagens fora do escopo, imagens, áudios ou falhas técnicas podem ser encaminhados para a profissional responsável.</p>
 
     <h2>5. Disponibilidade</h2>
-    <p>O serviço pode ficar indisponível temporariamente por manutenção, falhas de provedores externos, indisponibilidade do WhatsApp, da Meta, do Minha Agenda, da OpenAI ou de infraestrutura de hospedagem. Não garantimos funcionamento ininterrupto.</p>
+    <p>O serviço pode ficar indisponível temporariamente por manutenção, falhas de provedores externos, indisponibilidade do WhatsApp, do Evolution Go, do Minha Agenda, da OpenAI ou de infraestrutura de hospedagem. Não garantimos funcionamento ininterrupto.</p>
 
     <h2>6. Privacidade</h2>
     <p>O tratamento de dados pessoais está descrito na <a href="/privacy">Política de Privacidade</a>. Ao usar o atendimento, a cliente reconhece que suas mensagens e dados necessários poderão ser tratados para prestar o serviço solicitado.</p>
@@ -231,39 +231,29 @@ function renderDataDeletionInstructions(): string {
     <h1>Exclusão de Dados</h1>
     <p class="updated">Última atualização: ${updatedAt}</p>
 
-    <p class="notice">Esta página pode ser usada no painel da Meta como URL de instruções para exclusão de dados de usuários.</p>
+    <p class="notice">Esta página explica como solicitar exclusão de dados associados ao atendimento por WhatsApp.</p>
 
-    <p>Se você interagiu com o ${serviceName} pelo WhatsApp ou por recursos da Meta, pode solicitar a exclusão dos dados pessoais associados ao seu atendimento.</p>
+    <p>Se você interagiu com o ${serviceName} pelo WhatsApp, pode solicitar a exclusão dos dados pessoais associados ao seu atendimento.</p>
 
-    <h2>1. Como remover o app na Meta</h2>
-    <ol>
-      <li>Acesse sua conta do Facebook.</li>
-      <li>Entre em Configurações e privacidade &gt; Configurações.</li>
-      <li>Acesse Apps e sites.</li>
-      <li>Localize o app relacionado ao atendimento e clique em Remover.</li>
-      <li>Quando disponível, solicite também a exclusão dos dados compartilhados com o app.</li>
-    </ol>
-
-    <h2>2. Como pedir exclusão diretamente</h2>
+    <h2>1. Como pedir exclusão diretamente</h2>
     <p>Envie um email para <a href="mailto:${contactEmail}?subject=Exclus%C3%A3o%20de%20dados%20-%20Atendente%20IA">${contactEmail}</a> com o assunto "Exclusão de dados - Atendente IA" e inclua, quando possível:</p>
     <ul>
       <li>Nome usado no atendimento.</li>
       <li>Telefone WhatsApp usado para conversar com o atendimento.</li>
-      <li>Identificador de usuário Meta, se você tiver essa informação.</li>
       <li>Descrição do que deseja excluir ou anonimizar.</li>
     </ul>
     <p>Você também pode solicitar a exclusão pelo próprio WhatsApp do atendimento, informando que deseja remover seus dados pessoais.</p>
 
-    <h2>3. O que será excluído ou anonimizado</h2>
+    <h2>2. O que será excluído ou anonimizado</h2>
     <p>Após verificação da solicitação, removeremos ou anonimizaremos dados pessoais mantidos pelo ${serviceName}, como histórico de mensagens, vínculo entre telefone e cliente, registros operacionais associados e dados de atendimento que não precisem ser preservados por obrigação legal, segurança, defesa de direitos ou execução de serviços ainda pendentes.</p>
 
-    <h2>4. Prazos</h2>
+    <h2>3. Prazos</h2>
     <p>Confirmaremos o recebimento da solicitação e buscaremos concluir a exclusão ou anonimização em até 15 dias, salvo quando houver necessidade de prazo maior por obrigação legal, validação de identidade, preservação de registros ou dependência de sistemas de terceiros.</p>
 
-    <h2>5. Dados em serviços de terceiros</h2>
-    <p>Alguns dados podem permanecer em sistemas de terceiros necessários ao atendimento, como Meta/WhatsApp, Minha Agenda, OpenAI, provedores de hospedagem ou backups temporários. Quando aplicável, a exclusão seguirá os procedimentos e prazos desses fornecedores.</p>
+    <h2>4. Dados em serviços de terceiros</h2>
+    <p>Alguns dados podem permanecer em sistemas de terceiros necessários ao atendimento, como WhatsApp via Evolution Go, Minha Agenda, OpenAI, provedores de hospedagem ou backups temporários. Quando aplicável, a exclusão seguirá os procedimentos e prazos desses fornecedores.</p>
 
-    <h2>6. Contato</h2>
+    <h2>5. Contato</h2>
     <p>Para acompanhar uma solicitação de exclusão, envie email para <a href="mailto:${contactEmail}">${contactEmail}</a>.</p>
   `;
 }

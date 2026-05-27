@@ -7,7 +7,8 @@ const sensitiveKeys = new Set([
   "api_key",
   "apikey",
   "secret",
-  "whatsapp_access_token",
+  "evolution_api_key",
+  "evolution_webhook_token",
   "minha_agenda_password",
   "openai_api_key"
 ]);

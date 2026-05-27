@@ -3,7 +3,7 @@ PRD — API de Atendente IA no WhatsApp com Node.js + OpenAI + Minha Agenda
 Produto: Atendente IA para WhatsApp de profissional de beleza feminina
 Versão do PRD: v1.0
 Data: 11/05/2026
-Stack principal: WhatsApp Cloud API + Node.js/TypeScript + OpenAI API + API do app Minha Agenda
+Stack principal: Evolution Go + Node.js/TypeScript + OpenAI API + API do app Minha Agenda
 Status: especificação para desenvolvimento do MVP
 
 1. Objetivo do produto
@@ -12,7 +12,7 @@ Criar uma API que permita que uma IA atenda clientes pelo WhatsApp de forma natu
 
 A API deverá ser construída para baixo volume inicial: aproximadamente 200 clientes totais e média de 10 conversas por dia.
 
-A integração com WhatsApp será feita via WhatsApp Cloud API, que permite envio e recebimento programático de mensagens. Webhooks da plataforma entregam payloads JSON para o servidor, incluindo mensagens recebidas, status de mensagens e erros assíncronos.
+A integração com WhatsApp será feita via Evolution Go, que controla uma instancia WhatsApp vinculada por QR Code e entrega webhooks JSON para a API, incluindo mensagens recebidas, mensagens enviadas e eventos de conexão.
 
 A IA deverá usar function calling/tools, ou seja, não deve apenas “responder texto”; ela deve chamar funções internas da aplicação para consultar serviços, buscar horários, criar agendamentos, cancelar atendimentos e acionar atendimento humano. A documentação da OpenAI descreve esse fluxo como um processo em que o modelo recebe ferramentas disponíveis, solicita a execução de uma ferramenta, a aplicação executa a ação e devolve o resultado para o modelo gerar a resposta final.
 
@@ -59,9 +59,7 @@ Acionar atendimento humano quando necessário.
 Registrar logs de mensagens, decisões da IA e chamadas de API.
 Evitar duplicidade de processamento de mensagens.
 Permitir configuração manual de prompts, regras e endpoints.
-Enviar templates do WhatsApp para confirmações/lembretes quando necessário.
-
-O WhatsApp possui janela de atendimento ao cliente; quando uma usuária envia mensagem, inicia-se uma janela de 24 horas para respostas livres de atendimento. Fora dessa janela, normalmente será necessário usar templates aprovados.
+Enviar mensagens de confirmação/lembrete pelo provider WhatsApp quando necessário.
 
 4.2 Fora do escopo do MVP
 
@@ -124,7 +122,7 @@ baixo custo operacional.
 7. Arquitetura proposta
 Cliente WhatsApp
       ↓
-WhatsApp Cloud API
+Evolution Go
       ↓ Webhook
 API Node.js / TypeScript
       ↓
@@ -138,19 +136,19 @@ Minha Agenda API
       ↓
 Resposta final
       ↓
-WhatsApp Cloud API
+Evolution Go
       ↓
 Cliente WhatsApp
 Componentes
 Componente	Responsabilidade
-WhatsApp Cloud API	Receber e enviar mensagens
+Evolution Go	Receber e enviar mensagens
 Webhook Node.js	Receber eventos do WhatsApp
 Conversation Engine	Controlar fluxo e estado da conversa
 OpenAI Service	Gerar respostas naturais e acionar ferramentas
 Minha Agenda Client	Consultar serviços, clientes, agenda e agendamentos
 Persistence Layer	Guardar estado, logs e idempotência
 Handoff Service	Avisar profissional quando a IA não deve resolver sozinha
-Template Service	Enviar templates aprovados fora da janela de 24h
+Provider WhatsApp	Enviar mensagens pelo canal configurado
 Monitoring/Logs	Auditar mensagens, erros e agendamentos
 8. Stack técnica recomendada
 8.1 Backend
@@ -719,77 +717,63 @@ Resposta:
   "version": "1.0.0",
   "timestamp": "2026-05-11T12:00:00-03:00"
 }
-17.2 Webhook de verificação do WhatsApp
-GET /webhooks/whatsapp
-
-Responsável por validar o webhook configurado na Meta.
-
-Parâmetros esperados:
-
-hub.mode
-hub.verify_token
-hub.challenge
-
-Variáveis:
-
-WHATSAPP_VERIFY_TOKEN=[PREENCHER]
-17.3 Webhook de mensagens do WhatsApp
-POST /webhooks/whatsapp
+17.2 Webhook de mensagens do Evolution Go
+POST /webhooks/evolution?token=<EVOLUTION_WEBHOOK_TOKEN>
 
 Responsável por receber eventos de mensagens.
 
 Requisitos:
 
-validar assinatura, se configurada;
+validar token simples do webhook;
 extrair telefone;
 extrair nome do contato;
 extrair texto;
 ignorar eventos sem mensagem;
-salvar message_id;
+salvar chave idempotente provider:instanceId:messageId;
 não processar mensagem duplicada;
 retornar HTTP 200 rapidamente;
 processar IA de forma assíncrona, se necessário.
 
 Payload interno normalizado:
 
-type IncomingWhatsAppMessage = {
+type ChannelInboundMessage = {
+  provider: "evolution-go";
+  instanceId: string;
   messageId: string;
-  fromPhoneE164: string;
-  whatsappName?: string;
+  chatId: string;
+  customerPhone: string;
+  customerName?: string;
+  fromMe: boolean;
+  isGroup: boolean;
   text?: string;
-  type: "text" | "audio" | "image" | "document" | "unknown";
-  timestamp: string;
-  rawPayload: unknown;
+  kind: "text" | "audio" | "image" | "document" | "unknown";
+  timestamp?: string;
+  raw: unknown;
 };
-17.4 Envio de mensagem
-POST /internal/whatsapp/send-message
-
-Uso interno.
-
-{
-  "to": "+5511999999999",
-  "message": "Oi, tudo bem? 💕"
-}
-17.5 Forçar handoff humano
+17.3 Forçar handoff humano
 POST /internal/handoffs
 {
-  "phoneE164": "+5511999999999",
+  "phone": "5511999999999",
   "reason": "Cliente pediu encaixe urgente",
   "summary": "Cliente quer horário hoje após 19h para cílios."
 }
-17.6 Reprocessar conversa
+17.4 Reprocessar conversa
 POST /admin/conversations/:conversationId/reprocess
 
 Uso opcional para debug.
 
-18. Integração com WhatsApp Cloud API
+18. Integração com Evolution Go
 18.1 Variáveis de ambiente
-WHATSAPP_ACCESS_TOKEN=[PREENCHER]
-WHATSAPP_PHONE_NUMBER_ID=[PREENCHER]
-WHATSAPP_BUSINESS_ACCOUNT_ID=[PREENCHER]
-WHATSAPP_VERIFY_TOKEN=[PREENCHER]
-WHATSAPP_APP_SECRET=[PREENCHER, se usar validação de assinatura]
-WHATSAPP_API_VERSION=v[PREENCHEER]
+CHANNEL_PROVIDER=evolution-go
+EVOLUTION_WEBHOOK_TOKEN=[PREENCHER]
+EVOLUTION_BASE_URL=http://evolution-go:8080
+EVOLUTION_API_KEY=[PREENCHER]
+EVOLUTION_INSTANCE_ID=[PREENCHER]
+EVOLUTION_INSTANCE_NAME=salao-principal
+EVOLUTION_SEND_TEXT_PATH=/send/text
+EVOLUTION_IGNORE_GROUPS=true
+EVOLUTION_BOT_ENABLED=true
+HUMAN_HANDOFF_PAUSE_MINUTES=120
 18.2 Tipos de mensagens suportados no MVP
 Tipo	MVP
 Texto	sim
@@ -800,7 +784,7 @@ Botões/listas	opcional
 Templates	sim para confirmação/lembrete fora da janela
 18.3 Templates sugeridos
 
-Templates a criar no WhatsApp:
+Mensagens operacionais sugeridas:
 
 Nome do template	Uso
 confirmacao_agendamento	confirmar agendamento criado
@@ -1009,9 +993,9 @@ Fallback:
 Todos os tokens devem ficar em variáveis de ambiente:
 
 OPENAI_API_KEY
-WHATSAPP_ACCESS_TOKEN
+EVOLUTION_API_KEY
 MINHA_AGENDA_TOKEN
-WHATSAPP_APP_SECRET
+EVOLUTION_WEBHOOK_TOKEN
 
 Não armazenar tokens em:
 
@@ -1173,12 +1157,16 @@ OPENAI_MODEL=[PREENCHER]
 OPENAI_TEMPERATURE=0.4
 OPENAI_MAX_OUTPUT_TOKENS=600
 
-WHATSAPP_ACCESS_TOKEN=[PREENCHER]
-WHATSAPP_PHONE_NUMBER_ID=[PREENCHER]
-WHATSAPP_BUSINESS_ACCOUNT_ID=[PREENCHER]
-WHATSAPP_VERIFY_TOKEN=[PREENCHER]
-WHATSAPP_APP_SECRET=[PREENCHER]
-WHATSAPP_API_VERSION=[PREENCHER]
+CHANNEL_PROVIDER=evolution-go
+EVOLUTION_WEBHOOK_TOKEN=[PREENCHER]
+EVOLUTION_BASE_URL=http://evolution-go:8080
+EVOLUTION_API_KEY=[PREENCHER]
+EVOLUTION_INSTANCE_ID=[PREENCHER]
+EVOLUTION_INSTANCE_NAME=salao-principal
+EVOLUTION_SEND_TEXT_PATH=/send/text
+EVOLUTION_IGNORE_GROUPS=true
+EVOLUTION_BOT_ENABLED=true
+HUMAN_HANDOFF_PAUSE_MINUTES=120
 
 MINHA_AGENDA_BASE_URL=[PREENCHER]
 MINHA_AGENDA_AUTH_TYPE=[PREENCHER]
@@ -1198,11 +1186,20 @@ src/
     business-config.ts
 
   modules/
-    whatsapp/
-      whatsapp.routes.ts
-      whatsapp.webhook.ts
-      whatsapp.client.ts
-      whatsapp.types.ts
+    channel/
+      domain/
+        ChannelMessage.ts
+      ports/
+        WhatsAppProvider.ts
+      adapters/
+        evolution/
+          EvolutionInboundMapper.ts
+          EvolutionProvider.ts
+      routes/
+        evolutionWebhook.routes.ts
+
+    automation/
+      MessageOrchestrator.ts
 
     openai/
       openai.client.ts
@@ -1314,7 +1311,7 @@ Checklist:
 
 A primeira versão deve ser simples:
 
-WhatsApp Cloud API para entrada/saída;
+Evolution Go para entrada/saída;
 Node.js + TypeScript para API;
 OpenAI com function calling para conversa e ferramentas;
 Minha Agenda como fonte da verdade;

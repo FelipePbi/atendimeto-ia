@@ -1,0 +1,110 @@
+services:
+  api:
+    build: .
+    command: sh -c "npx prisma migrate deploy && npm start"
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      API_PORT: ${API_PORT:-3000}
+      CHANNEL_PROVIDER: evolution-go
+      DATABASE_URL: postgresql://${API_POSTGRES_USER:-app}:${API_POSTGRES_PASSWORD:-app}@api-postgres:5432/${API_POSTGRES_DB:-salao}?sslmode=disable
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-5.4-mini}
+      OPENAI_MAX_OUTPUT_TOKENS: ${OPENAI_MAX_OUTPUT_TOKENS:-600}
+      EVOLUTION_WEBHOOK_TOKEN: ${EVOLUTION_WEBHOOK_TOKEN:-troque-este-token}
+      EVOLUTION_BASE_URL: http://evolution-go:8080
+      EVOLUTION_API_KEY: ${EVOLUTION_API_KEY:-troque-esta-chave-global}
+      EVOLUTION_INSTANCE_ID: ${EVOLUTION_INSTANCE_ID:-}
+      EVOLUTION_INSTANCE_NAME: ${EVOLUTION_INSTANCE_NAME:-salao-principal}
+      EVOLUTION_SEND_TEXT_PATH: ${EVOLUTION_SEND_TEXT_PATH:-/send/text}
+      EVOLUTION_IGNORE_GROUPS: ${EVOLUTION_IGNORE_GROUPS:-true}
+      EVOLUTION_BOT_ENABLED: ${EVOLUTION_BOT_ENABLED:-true}
+      HUMAN_HANDOFF_PAUSE_MINUTES: ${HUMAN_HANDOFF_PAUSE_MINUTES:-120}
+      MINHA_AGENDA_BASE_URL: ${MINHA_AGENDA_BASE_URL:-https://api.minhaagendaapp.com.br}
+      MINHA_AGENDA_BASIC_AUTH: ${MINHA_AGENDA_BASIC_AUTH:-}
+      MINHA_AGENDA_USERNAME: ${MINHA_AGENDA_USERNAME:-}
+      MINHA_AGENDA_PASSWORD: ${MINHA_AGENDA_PASSWORD:-}
+      MINHA_AGENDA_DEFAULT_EMPLOYEE_ID: ${MINHA_AGENDA_DEFAULT_EMPLOYEE_ID:-873242}
+      MINHA_AGENDA_DEFAULT_PAYMENT_METHOD: ${MINHA_AGENDA_DEFAULT_PAYMENT_METHOD:-CASH}
+      MINHA_AGENDA_MODEL_VERSION: ${MINHA_AGENDA_MODEL_VERSION:-2}
+      MINHA_AGENDA_TIMEOUT_MS: ${MINHA_AGENDA_TIMEOUT_MS:-10000}
+      MINHA_AGENDA_TOKEN_REFRESH_SKEW_SECONDS: ${MINHA_AGENDA_TOKEN_REFRESH_SKEW_SECONDS:-300}
+      MINHA_AGENDA_ENABLE_WRITES: ${MINHA_AGENDA_ENABLE_WRITES:-false}
+      BUSINESS_TIMEZONE: ${BUSINESS_TIMEZONE:-America/Sao_Paulo}
+      BUSINESS_MAX_SLOTS_TO_OFFER: ${BUSINESS_MAX_SLOTS_TO_OFFER:-3}
+      BUSINESS_AVAILABILITY_DAYS: ${BUSINESS_AVAILABILITY_DAYS:-14}
+      BUSINESS_SLOT_STEP_MINUTES: ${BUSINESS_SLOT_STEP_MINUTES:-30}
+      BUSINESS_APPOINTMENT_LOOKUP_DAYS: ${BUSINESS_APPOINTMENT_LOOKUP_DAYS:-90}
+      BUSINESS_NAME: ${BUSINESS_NAME:-}
+      BUSINESS_PROFESSIONAL_NAME: ${BUSINESS_PROFESSIONAL_NAME:-}
+      BUSINESS_ADDRESS: ${BUSINESS_ADDRESS:-}
+      BUSINESS_DELAY_POLICY: ${BUSINESS_DELAY_POLICY:-}
+      BUSINESS_CANCELLATION_POLICY: ${BUSINESS_CANCELLATION_POLICY:-}
+      BUSINESS_DEPOSIT_POLICY: ${BUSINESS_DEPOSIT_POLICY:-}
+      ADMIN_API_TOKEN: ${ADMIN_API_TOKEN:-}
+    ports:
+      - "${API_PORT:-3000}:3000"
+    depends_on:
+      api-postgres:
+        condition: service_healthy
+      evolution-go:
+        condition: service_started
+    restart: unless-stopped
+
+  api-postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: ${API_POSTGRES_USER:-app}
+      POSTGRES_PASSWORD: ${API_POSTGRES_PASSWORD:-app}
+      POSTGRES_DB: ${API_POSTGRES_DB:-salao}
+    ports:
+      - "5433:5432"
+    volumes:
+      - api_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${API_POSTGRES_USER:-app} -d ${API_POSTGRES_DB:-salao}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  evogo-postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: ${EVOGO_POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${EVOGO_POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: postgres
+      EVOGO_AUTH_DB: ${EVOGO_AUTH_DB:-evogo_auth}
+      EVOGO_USERS_DB: ${EVOGO_USERS_DB:-evogo_users}
+    ports:
+      - "5434:5432"
+    volumes:
+      - evogo_postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/evolution-init.sql:/docker-entrypoint-initdb.d/01-evolution-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${EVOGO_POSTGRES_USER:-postgres} -d postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  evolution-go:
+    image: evoapicloud/evolution-go:latest
+    environment:
+      SERVER_PORT: 8080
+      CLIENT_NAME: evolution
+      GLOBAL_API_KEY: ${EVOLUTION_API_KEY:-troque-esta-chave-global}
+      POSTGRES_AUTH_DB: postgresql://${EVOGO_POSTGRES_USER:-postgres}:${EVOGO_POSTGRES_PASSWORD:-postgres}@evogo-postgres:5432/${EVOGO_AUTH_DB:-evogo_auth}?sslmode=disable
+      POSTGRES_USERS_DB: postgresql://${EVOGO_POSTGRES_USER:-postgres}:${EVOGO_POSTGRES_PASSWORD:-postgres}@evogo-postgres:5432/${EVOGO_USERS_DB:-evogo_users}?sslmode=disable
+      DATABASE_SAVE_MESSAGES: ${EVOGO_DATABASE_SAVE_MESSAGES:-false}
+      WADEBUG: ${EVOGO_WADEBUG:-INFO}
+      LOGTYPE: ${EVOGO_LOGTYPE:-console}
+    ports:
+      - "8080:8080"
+    depends_on:
+      evogo-postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  api_postgres_data:
+  evogo_postgres_data:

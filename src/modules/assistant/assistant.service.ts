@@ -8,13 +8,21 @@ import {
   type ResponsesApiResponse
 } from "../openai/openai-client.js";
 import { AssistantToolRegistry } from "../openai/tools.js";
+import type { ChannelInboundMessage } from "../channel/domain/ChannelMessage.js";
 
 export interface IncomingAssistantMessage {
   phone: string;
   text: string;
+  channelMessage?: ChannelInboundMessage;
   whatsappMessageId?: string;
   customerName?: string | null;
   rawPayload?: unknown;
+}
+
+export interface AssistantReply {
+  text: string;
+  conversationId: string;
+  messageRecordId: string;
 }
 
 export class AssistantService {
@@ -24,16 +32,24 @@ export class AssistantService {
     private readonly tools = new AssistantToolRegistry(prisma)
   ) {}
 
-  async handleIncomingText(input: IncomingAssistantMessage): Promise<string> {
+  async handleIncomingText(input: IncomingAssistantMessage): Promise<AssistantReply> {
+    const channelMessage = input.channelMessage;
+    const phone = channelMessage?.customerPhone ?? input.phone;
+    const customerName = channelMessage?.customerName ?? input.customerName;
+    const whatsappMessageId = channelMessage?.messageId ?? input.whatsappMessageId;
+    const rawPayload = channelMessage?.raw ?? input.rawPayload;
+
     const conversation = await this.prisma.conversation.upsert({
-      where: { whatsappPhone: input.phone },
+      where: { whatsappPhone: phone },
       update: {
-        customerName: input.customerName ?? undefined,
-        status: "ACTIVE"
+        customerName: customerName ?? undefined,
+        status: "ACTIVE",
+        humanHandoff: false,
+        handoffPausedUntil: null
       },
       create: {
-        whatsappPhone: input.phone,
-        customerName: input.customerName ?? null,
+        whatsappPhone: phone,
+        customerName: customerName ?? null,
         state: {}
       }
     });
@@ -44,8 +60,8 @@ export class AssistantService {
         direction: "INBOUND",
         role: "user",
         body: input.text,
-        whatsappMessageId: input.whatsappMessageId,
-        rawPayload: input.rawPayload as object
+        whatsappMessageId,
+        rawPayload: rawPayload as object
       }
     });
 
@@ -63,13 +79,13 @@ export class AssistantService {
     const instructions = buildSystemPrompt(conversation.state);
     const reply = await this.runToolLoop({
       conversationId: conversation.id,
-      phone: input.phone,
-      customerName: input.customerName,
+      phone,
+      customerName,
       instructions,
       input: chronologicalMessages
     });
 
-    await this.prisma.message.create({
+    const assistantMessage = await this.prisma.message.create({
       data: {
         conversationId: conversation.id,
         direction: "OUTBOUND",
@@ -78,7 +94,25 @@ export class AssistantService {
       }
     });
 
-    return reply;
+    return {
+      text: reply,
+      conversationId: conversation.id,
+      messageRecordId: assistantMessage.id
+    };
+  }
+
+  async markOutboundMessageSent(input: {
+    messageRecordId: string;
+    providerMessageId?: string;
+    rawPayload?: unknown;
+  }): Promise<void> {
+    await this.prisma.message.update({
+      where: { id: input.messageRecordId },
+      data: {
+        whatsappMessageId: input.providerMessageId,
+        rawPayload: input.rawPayload as object
+      }
+    });
   }
 
   private async runToolLoop(args: {

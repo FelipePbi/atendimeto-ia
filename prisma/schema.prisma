@@ -37,15 +37,16 @@ enum HandoffStatus {
 }
 
 model Conversation {
-  id             String             @id @default(cuid())
-  whatsappPhone  String             @unique
-  customerName   String?
-  currentIntent  String?
-  state          Json?
-  status         ConversationStatus @default(ACTIVE)
-  humanHandoff   Boolean            @default(false)
-  createdAt      DateTime           @default(now())
-  updatedAt      DateTime           @updatedAt
+  id                 String             @id @default(cuid())
+  whatsappPhone      String             @unique
+  customerName       String?
+  currentIntent      String?
+  state              Json?
+  status             ConversationStatus @default(ACTIVE)
+  humanHandoff       Boolean            @default(false)
+  handoffPausedUntil DateTime?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
 
   messages             Message[]
   toolCalls            ToolCall[]
@@ -69,10 +70,13 @@ model Message {
 }
 
 model ProcessedEvent {
-  id                String   @id @default(cuid())
-  whatsappMessageId String   @unique
-  rawPayload        Json?
-  receivedAt        DateTime @default(now())
+  id         String   @id @default(cuid())
+  eventKey   String   @unique
+  provider   String
+  instanceId String?
+  messageId  String
+  rawPayload Json?
+  receivedAt DateTime @default(now())
 }
 
 model ToolCall {

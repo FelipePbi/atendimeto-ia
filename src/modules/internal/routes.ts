@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import type { PrismaClient } from "@prisma/client";
 import { z } from "zod";
 import { env } from "../../config/env.js";
+import { BOT_OFF_PAUSE_UNTIL } from "../handoff/HandoffService.js";
 
 const createHandoffSchema = z.object({
   phone: z.string().min(6),
@@ -34,11 +35,16 @@ export async function registerInternalRoutes(app: FastifyInstance, prisma: Prism
 
     const conversation = await prisma.conversation.upsert({
       where: { whatsappPhone: parsed.data.phone },
-      update: { humanHandoff: true, status: "HUMAN_HANDOFF" },
+      update: {
+        humanHandoff: true,
+        status: "HUMAN_HANDOFF",
+        handoffPausedUntil: BOT_OFF_PAUSE_UNTIL
+      },
       create: {
         whatsappPhone: parsed.data.phone,
         humanHandoff: true,
         status: "HUMAN_HANDOFF",
+        handoffPausedUntil: BOT_OFF_PAUSE_UNTIL,
         state: {}
       }
     });
@@ -65,6 +71,18 @@ export async function registerInternalRoutes(app: FastifyInstance, prisma: Prism
         resolvedAt: new Date()
       }
     });
+
+    if (handoff.conversationId) {
+      await prisma.conversation.update({
+        where: { id: handoff.conversationId },
+        data: {
+          humanHandoff: false,
+          status: "ACTIVE",
+          handoffPausedUntil: null
+        }
+      });
+    }
+
     return reply.send({ ok: true, handoff });
   });
 }

@@ -25,17 +25,23 @@ const boolEnv = (defaultValue: boolean) =>
 
 const envSchema = z.object({
   NODE_ENV: stringEnv("development"),
+  API_PORT: intEnv(3000),
   PORT: intEnv(3000),
   DATABASE_URL: stringEnv(),
   OPENAI_API_KEY: stringEnv(),
   OPENAI_MODEL: stringEnv("gpt-5.4-mini"),
   OPENAI_MAX_OUTPUT_TOKENS: intEnv(600),
-  WHATSAPP_ACCESS_TOKEN: stringEnv(),
-  WHATSAPP_PHONE_NUMBER_ID: stringEnv(),
-  WHATSAPP_BUSINESS_ACCOUNT_ID: stringEnv(),
-  WHATSAPP_VERIFY_TOKEN: stringEnv(),
-  WHATSAPP_APP_SECRET: stringEnv(),
-  WHATSAPP_API_VERSION: stringEnv("v23.0"),
+  CHANNEL_PROVIDER: z.literal("evolution-go").default("evolution-go"),
+  EVOLUTION_WEBHOOK_TOKEN: stringEnv(),
+  EVOLUTION_BASE_URL: stringEnv("http://evolution-go:8080"),
+  EVOLUTION_API_KEY: stringEnv(),
+  EVOLUTION_INSTANCE_ID: stringEnv(),
+  EVOLUTION_INSTANCE_TOKEN: stringEnv(),
+  EVOLUTION_INSTANCE_NAME: stringEnv("salao-principal"),
+  EVOLUTION_SEND_TEXT_PATH: stringEnv("/send/text"),
+  EVOLUTION_IGNORE_GROUPS: boolEnv(true),
+  EVOLUTION_BOT_ENABLED: boolEnv(true),
+  HUMAN_HANDOFF_PAUSE_MINUTES: intEnv(120),
   MINHA_AGENDA_BASE_URL: stringEnv("https://api.minhaagendaapp.com.br"),
   MINHA_AGENDA_BASIC_AUTH: stringEnv(),
   MINHA_AGENDA_USERNAME: stringEnv(),
@@ -89,6 +95,9 @@ export function requireOpenAiEnv(): void {
   requireEnv(["OPENAI_API_KEY", "OPENAI_MODEL"]);
 }
 
-export function requireWhatsAppEnv(): void {
-  requireEnv(["WHATSAPP_ACCESS_TOKEN", "WHATSAPP_PHONE_NUMBER_ID", "WHATSAPP_VERIFY_TOKEN"]);
+export function requireEvolutionEnv(): void {
+  requireEnv(["EVOLUTION_BASE_URL"]);
+  if (!env.EVOLUTION_INSTANCE_TOKEN && !env.EVOLUTION_API_KEY) {
+    throw new Error("Missing required environment variables: EVOLUTION_INSTANCE_TOKEN or EVOLUTION_API_KEY");
+  }
 }
