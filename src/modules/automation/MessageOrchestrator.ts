@@ -78,6 +78,10 @@ export class MessageOrchestrator {
       return this.handleFromMeMessage(message);
     }
 
+    return this.processCustomerMessage(message);
+  }
+
+  private async processCustomerMessage(message: ChannelInboundMessage): Promise<OrchestratorResult> {
     if (!env.EVOLUTION_BOT_ENABLED) {
       return { ok: true, action: "bot_disabled" };
     }
@@ -159,6 +163,10 @@ export class MessageOrchestrator {
       return { ok: true, action: "bot_paused" };
     }
 
+    if (env.EVOLUTION_ALLOW_SELF_CHAT && isSelfChatMessage(message)) {
+      return this.processCustomerMessage(message);
+    }
+
     const pauseUntil = new Date(Date.now() + env.HUMAN_HANDOFF_PAUSE_MINUTES * 60_000);
     await this.handoff.pauseForHuman({
       phone: message.customerPhone,
@@ -168,4 +176,30 @@ export class MessageOrchestrator {
     });
     return { ok: true, action: "bot_paused" };
   }
+}
+
+function isSelfChatMessage(message: ChannelInboundMessage): boolean {
+  const info = readEvolutionInfo(message.raw);
+  const chat = normalizeJid(info?.Chat) || normalizeJid(message.chatId);
+  const sender = normalizeJid(info?.Sender);
+  const senderAlt = normalizeJid(info?.SenderAlt);
+
+  return Boolean(chat && (chat === sender || chat === senderAlt));
+}
+
+function readEvolutionInfo(raw: unknown): Record<string, unknown> | undefined {
+  if (!isRecord(raw)) return undefined;
+  const data = raw.data;
+  if (!isRecord(data)) return undefined;
+  return isRecord(data.Info) ? data.Info : undefined;
+}
+
+function normalizeJid(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const normalized = value.trim().toLowerCase();
+  return normalized || undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

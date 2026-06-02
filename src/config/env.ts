@@ -41,6 +41,7 @@ const envSchema = z.object({
   EVOLUTION_SEND_TEXT_PATH: stringEnv("/send/text"),
   EVOLUTION_IGNORE_GROUPS: boolEnv(true),
   EVOLUTION_BOT_ENABLED: boolEnv(true),
+  EVOLUTION_ALLOW_SELF_CHAT: boolEnv(false),
   HUMAN_HANDOFF_PAUSE_MINUTES: intEnv(120),
   MINHA_AGENDA_BASE_URL: stringEnv("https://api.minhaagendaapp.com.br"),
   MINHA_AGENDA_BASIC_AUTH: stringEnv(),

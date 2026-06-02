@@ -22,6 +22,7 @@ Configure pelo menos:
 EVOLUTION_API_KEY=uma-chave-forte
 EVOLUTION_WEBHOOK_TOKEN=outro-token-forte
 EVOLUTION_INSTANCE_TOKEN=token-da-instancia
+EVOLUTION_ALLOW_SELF_CHAT=false
 OPENAI_API_KEY=
 MINHA_AGENDA_BASIC_AUTH=
 MINHA_AGENDA_USERNAME=
@@ -131,6 +132,7 @@ Rotas `/internal/*` exigem `Authorization: Bearer <ADMIN_API_TOKEN>` ou header `
 ## Handoff Humano
 
 - Resposta manual pelo celular (`fromMe=true`) pausa o bot no chat por `HUMAN_HANDOFF_PAUSE_MINUTES`.
+- Para testar conversando no chat consigo mesmo, use `EVOLUTION_ALLOW_SELF_CHAT=true`; o bot continua pausando mensagens manuais para outros chats.
 - `/bot off` pausa o bot indefinidamente naquele chat.
 - `/bot on` reativa o bot naquele chat.
 - Grupos sao ignorados quando `EVOLUTION_IGNORE_GROUPS=true`.

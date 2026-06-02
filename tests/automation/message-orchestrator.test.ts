@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { env } from "../../src/config/env.js";
 import { MessageOrchestrator } from "../../src/modules/automation/MessageOrchestrator.js";
 import type { ChannelInboundMessage } from "../../src/modules/channel/domain/ChannelMessage.js";
 
@@ -97,6 +98,80 @@ describe("MessageOrchestrator", () => {
       })
     );
     expect(subject.automation.handleIncomingText).not.toHaveBeenCalled();
+  });
+
+  it("processes fromMe self-chat messages when self-chat testing is enabled", async () => {
+    const original = env.EVOLUTION_ALLOW_SELF_CHAT;
+    env.EVOLUTION_ALLOW_SELF_CHAT = true;
+
+    try {
+      const subject = buildSubject();
+
+      await expect(
+        subject.orchestrator.handleInboundMessage(
+          baseMessage({
+            fromMe: true,
+            chatId: "5511999999999@lid",
+            customerPhone: "5511999999999",
+            raw: {
+              data: {
+                Info: {
+                  Chat: "5511999999999@lid",
+                  Sender: "5511999999999@lid"
+                }
+              }
+            }
+          })
+        )
+      ).resolves.toMatchObject({
+        action: "replied"
+      });
+
+      expect(subject.automation.handleIncomingText).toHaveBeenCalledWith(
+        expect.objectContaining({
+          phone: "5511999999999",
+          text: "Oi"
+        })
+      );
+      expect(subject.handoff.pauseForHuman).not.toHaveBeenCalled();
+      expect(subject.provider.sendText).toHaveBeenCalled();
+    } finally {
+      env.EVOLUTION_ALLOW_SELF_CHAT = original;
+    }
+  });
+
+  it("still pauses manual fromMe messages to other chats when self-chat testing is enabled", async () => {
+    const original = env.EVOLUTION_ALLOW_SELF_CHAT;
+    env.EVOLUTION_ALLOW_SELF_CHAT = true;
+
+    try {
+      const subject = buildSubject();
+
+      await expect(
+        subject.orchestrator.handleInboundMessage(
+          baseMessage({
+            fromMe: true,
+            chatId: "5511888888888@s.whatsapp.net",
+            customerPhone: "5511888888888",
+            raw: {
+              data: {
+                Info: {
+                  Chat: "5511888888888@s.whatsapp.net",
+                  Sender: "5511777777777@s.whatsapp.net"
+                }
+              }
+            }
+          })
+        )
+      ).resolves.toMatchObject({
+        action: "bot_paused"
+      });
+
+      expect(subject.automation.handleIncomingText).not.toHaveBeenCalled();
+      expect(subject.provider.sendText).not.toHaveBeenCalled();
+    } finally {
+      env.EVOLUTION_ALLOW_SELF_CHAT = original;
+    }
   });
 
   it("reactivates the bot with /bot on", async () => {
