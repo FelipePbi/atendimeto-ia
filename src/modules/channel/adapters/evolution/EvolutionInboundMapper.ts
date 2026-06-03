@@ -4,6 +4,19 @@ import type { EvolutionWebhookPayload } from "./EvolutionTypes.js";
 
 const messageEvents = new Set(["Message", "SendMessage"]);
 
+export interface EvolutionInboundInspection {
+  isObject: boolean;
+  event?: string;
+  supportedEvent: boolean;
+  hasData: boolean;
+  hasInfo: boolean;
+  hasMessage: boolean;
+  hasInstanceId: boolean;
+  hasMessageId: boolean;
+  hasChatId: boolean;
+  rejectionReason?: string;
+}
+
 export function mapEvolutionInbound(payload: unknown): ChannelInboundMessage | null {
   if (!isRecord(payload)) return null;
 
@@ -40,6 +53,54 @@ export function mapEvolutionInbound(payload: unknown): ChannelInboundMessage | n
     text,
     timestamp: stringValue(info.Timestamp),
     raw: payload
+  };
+}
+
+export function inspectEvolutionInboundPayload(payload: unknown): EvolutionInboundInspection {
+  if (!isRecord(payload)) {
+    return {
+      isObject: false,
+      supportedEvent: false,
+      hasData: false,
+      hasInfo: false,
+      hasMessage: false,
+      hasInstanceId: false,
+      hasMessageId: false,
+      hasChatId: false,
+      rejectionReason: "payload_not_object"
+    };
+  }
+
+  const event = stringValue(payload.event);
+  const data = recordValue(payload.data);
+  const info = recordValue(data?.Info);
+  const message = recordValue(data?.Message);
+  const supportedEvent = Boolean(event && messageEvents.has(event));
+  const hasInstanceId = Boolean(stringValue(payload.instanceId));
+  const hasMessageId = Boolean(stringValue(info?.ID));
+  const hasChatId = Boolean(stringValue(info?.Chat));
+
+  let rejectionReason: string | undefined;
+  if (!event) rejectionReason = "missing_event";
+  else if (!supportedEvent) rejectionReason = "unsupported_event";
+  else if (!data) rejectionReason = "missing_data";
+  else if (!info) rejectionReason = "missing_info";
+  else if (!message) rejectionReason = "missing_message";
+  else if (!hasInstanceId) rejectionReason = "missing_instance_id";
+  else if (!hasMessageId) rejectionReason = "missing_message_id";
+  else if (!hasChatId) rejectionReason = "missing_chat_id";
+
+  return {
+    isObject: true,
+    event,
+    supportedEvent,
+    hasData: Boolean(data),
+    hasInfo: Boolean(info),
+    hasMessage: Boolean(message),
+    hasInstanceId,
+    hasMessageId,
+    hasChatId,
+    rejectionReason
   };
 }
 

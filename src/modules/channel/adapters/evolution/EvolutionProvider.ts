@@ -1,13 +1,35 @@
 import { env, requireEvolutionEnv } from "../../../../config/env.js";
+import {
+  type DiagnosticLogger,
+  maskPhone,
+  noopDiagnosticLogger,
+  truncateDiagnostic
+} from "../../../../lib/diagnostic-log.js";
 import { AppError } from "../../../../lib/errors.js";
 import type { SendTextInput, SendTextResult, WhatsAppProvider } from "../../ports/WhatsAppProvider.js";
 import type { EvolutionSendTextResponse } from "./EvolutionTypes.js";
 
 export class EvolutionProvider implements WhatsAppProvider {
+  constructor(private readonly logger: DiagnosticLogger = noopDiagnosticLogger) {}
+
   async sendText(input: SendTextInput): Promise<SendTextResult> {
     requireEvolutionEnv();
 
-    const response = await fetch(joinUrl(env.EVOLUTION_BASE_URL, env.EVOLUTION_SEND_TEXT_PATH), {
+    const url = joinUrl(env.EVOLUTION_BASE_URL, env.EVOLUTION_SEND_TEXT_PATH);
+    this.logger.info(
+      {
+        url,
+        to: maskPhone(input.to),
+        textLength: input.text.length,
+        quotedMessageId: input.quotedMessageId,
+        correlationId: input.correlationId,
+        hasInstanceIdHeader: Boolean(env.EVOLUTION_INSTANCE_ID),
+        hasApiKeyHeader: Boolean(env.EVOLUTION_INSTANCE_TOKEN || env.EVOLUTION_API_KEY)
+      },
+      "EvolutionProvider sending text"
+    );
+
+    const response = await fetch(url, {
       method: "POST",
       headers: buildHeaders(),
       body: JSON.stringify(buildSendTextBody(input))
@@ -15,6 +37,15 @@ export class EvolutionProvider implements WhatsAppProvider {
 
     const raw = await parseResponse(response);
     if (!response.ok) {
+      this.logger.error(
+        {
+          url,
+          to: maskPhone(input.to),
+          status: response.status,
+          response: truncateDiagnostic(raw)
+        },
+        "EvolutionProvider send failed"
+      );
       throw new AppError(`Evolution Go send failed with HTTP ${response.status}`, {
         statusCode: response.status,
         code: "EVOLUTION_SEND_FAILED",
@@ -22,9 +53,20 @@ export class EvolutionProvider implements WhatsAppProvider {
       });
     }
 
+    const messageId = extractMessageId(raw);
+    this.logger.info(
+      {
+        url,
+        to: maskPhone(input.to),
+        status: response.status,
+        messageId
+      },
+      "EvolutionProvider send succeeded"
+    );
+
     return {
       provider: "evolution-go",
-      messageId: extractMessageId(raw),
+      messageId,
       raw
     };
   }
