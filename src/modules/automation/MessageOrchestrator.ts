@@ -8,11 +8,11 @@ import { toErrorMessage } from "../../lib/errors.js";
 import type { AssistantReply, AssistantService } from "../assistant/assistant.service.js";
 import type { ChannelInboundMessage } from "../channel/domain/ChannelMessage.js";
 import type { WhatsAppProvider } from "../channel/ports/WhatsAppProvider.js";
-import type { HandoffService } from "../handoff/HandoffService.js";
+import type { BotPauseContext, HandoffService } from "../handoff/HandoffService.js";
 import type { IdempotencyStore } from "../idempotency/IdempotencyStore.js";
 
 const unsupportedMessageReply =
-  "Recebi sua mensagem, mas vou pedir para a profissional continuar esse atendimento por aqui.";
+  "Recebi sua mensagem, mas por enquanto consigo responder melhor por texto. Me envie sua pergunta em texto que continuo por aqui.";
 const processingErrorReply =
   "Tive um problema para consultar o sistema agora. Vou chamar a profissional para continuar seu atendimento.";
 
@@ -27,6 +27,7 @@ export interface OrchestratorResult {
     | "bot_disabled"
     | "paused_conversation"
     | "unsupported_handoff"
+    | "unsupported_message"
     | "replied"
     | "error_handoff";
 }
@@ -54,6 +55,7 @@ export interface HandoffPort {
     pauseUntil?: Date | null;
   }): Promise<void>;
   pauseIndefinitely(phone: string, reason: string, summary?: string): Promise<void>;
+  getBotPauseContext?(phone: string): Promise<BotPauseContext | null>;
   resumeBot(phone: string): Promise<void>;
 }
 
@@ -123,16 +125,24 @@ export class MessageOrchestrator {
       "Orchestrator handoff pause result"
     );
     if (botPaused) {
-      return { ok: true, action: "paused_conversation" };
+      const pauseContext = await this.handoff.getBotPauseContext?.(message.customerPhone);
+      if (isTextMessage(message) && isUnsupportedMessagePause(pauseContext)) {
+        this.logger.info(
+          {
+            ...channelMessageLogContext(message),
+            pauseReason: pauseContext.reason,
+            handoffId: pauseContext.handoffId
+          },
+          "Orchestrator resuming bot after unsupported-message pause"
+        );
+        await this.handoff.resumeBot(message.customerPhone);
+      } else {
+        return { ok: true, action: "paused_conversation" };
+      }
     }
 
-    if (message.kind !== "text" || !message.text?.trim()) {
-      this.logger.warn(channelMessageLogContext(message), "Orchestrator unsupported message: creating handoff");
-      await this.handoff.pauseIndefinitely(
-        message.customerPhone,
-        `Mensagem ${message.kind} nao suportada pelo bot`,
-        "Cliente enviou mensagem fora do suporte textual do MVP."
-      );
+    if (!isTextMessage(message)) {
+      this.logger.warn(channelMessageLogContext(message), "Orchestrator unsupported message: sending guidance");
       this.logger.info(channelMessageLogContext(message), "Orchestrator sending unsupported-message reply");
       await this.provider.sendText({
         to: message.customerPhone,
@@ -140,7 +150,7 @@ export class MessageOrchestrator {
         quotedMessageId: message.messageId
       });
       this.logger.info(channelMessageLogContext(message), "Orchestrator unsupported-message reply sent");
-      return { ok: true, action: "unsupported_handoff" };
+      return { ok: true, action: "unsupported_message" };
     }
 
     try {
@@ -286,6 +296,15 @@ function isSelfChatMessage(message: ChannelInboundMessage): boolean {
   const senderAlt = normalizeJid(info?.SenderAlt);
 
   return Boolean(chat && (chat === sender || chat === senderAlt));
+}
+
+function isTextMessage(message: ChannelInboundMessage): message is ChannelInboundMessage & { kind: "text"; text: string } {
+  return message.kind === "text" && Boolean(message.text?.trim());
+}
+
+function isUnsupportedMessagePause(pauseContext: BotPauseContext | null | undefined): pauseContext is BotPauseContext {
+  const reason = pauseContext?.reason;
+  return Boolean(reason?.startsWith("Mensagem ") && reason.endsWith(" nao suportada pelo bot"));
 }
 
 function readEvolutionInfo(raw: unknown): Record<string, unknown> | undefined {

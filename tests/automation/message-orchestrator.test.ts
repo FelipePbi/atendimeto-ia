@@ -42,6 +42,7 @@ function buildSubject() {
   const handoff = {
     isBotPaused: vi.fn().mockResolvedValue(false),
     isBotOutboundMessage: vi.fn().mockResolvedValue(false),
+    getBotPauseContext: vi.fn().mockResolvedValue(null),
     pauseForHuman: vi.fn().mockResolvedValue(undefined),
     pauseIndefinitely: vi.fn().mockResolvedValue(undefined),
     resumeBot: vi.fn().mockResolvedValue(undefined)
@@ -196,6 +197,54 @@ describe("MessageOrchestrator", () => {
 
     expect(subject.automation.handleIncomingText).not.toHaveBeenCalled();
     expect(subject.provider.sendText).not.toHaveBeenCalled();
+  });
+
+  it("resumes and responds when a text arrives after an unsupported-message pause", async () => {
+    const subject = buildSubject();
+    subject.handoff.isBotPaused.mockResolvedValue(true);
+    subject.handoff.getBotPauseContext.mockResolvedValue({
+      phone: "5511999999999",
+      reason: "Mensagem unknown nao suportada pelo bot",
+      summary: "Cliente enviou mensagem fora do suporte textual do MVP.",
+      pauseUntil: new Date("9999-12-31T23:59:59.000Z"),
+      handoffId: "handoff-1"
+    });
+
+    await expect(subject.orchestrator.handleInboundMessage(baseMessage({ text: "Quero agendar" }))).resolves.toMatchObject({
+      action: "replied"
+    });
+
+    expect(subject.handoff.resumeBot).toHaveBeenCalledWith("5511999999999");
+    expect(subject.automation.handleIncomingText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        phone: "5511999999999",
+        text: "Quero agendar"
+      })
+    );
+    expect(subject.provider.sendText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: "5511999999999",
+        text: "Resposta"
+      })
+    );
+  });
+
+  it("does not pause indefinitely for new unsupported messages", async () => {
+    const subject = buildSubject();
+
+    await expect(
+      subject.orchestrator.handleInboundMessage(baseMessage({ kind: "unknown", text: undefined }))
+    ).resolves.toMatchObject({
+      action: "unsupported_message"
+    });
+
+    expect(subject.handoff.pauseIndefinitely).not.toHaveBeenCalled();
+    expect(subject.automation.handleIncomingText).not.toHaveBeenCalled();
+    expect(subject.provider.sendText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: "5511999999999"
+      })
+    );
   });
 
   it("sends assistant replies through the Evolution provider", async () => {

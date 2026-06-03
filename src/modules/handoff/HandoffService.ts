@@ -9,6 +9,14 @@ export interface HandoffPauseInput {
   pauseUntil?: Date | null;
 }
 
+export interface BotPauseContext {
+  phone: string;
+  reason?: string;
+  summary?: string | null;
+  pauseUntil?: Date | null;
+  handoffId?: string;
+}
+
 export class HandoffService {
   constructor(private readonly prisma: PrismaClient) {}
 
@@ -30,6 +38,30 @@ export class HandoffService {
       }
     });
     return false;
+  }
+
+  async getBotPauseContext(phone: string): Promise<BotPauseContext | null> {
+    const conversation = await this.prisma.conversation.findUnique({
+      where: { whatsappPhone: phone },
+      include: {
+        handoffs: {
+          where: { status: "OPEN" },
+          orderBy: { createdAt: "desc" },
+          take: 1
+        }
+      }
+    });
+
+    if (!conversation?.humanHandoff) return null;
+
+    const handoff = conversation.handoffs[0];
+    return {
+      phone,
+      reason: handoff?.reason,
+      summary: handoff?.summary,
+      pauseUntil: conversation.handoffPausedUntil,
+      handoffId: handoff?.id
+    };
   }
 
   async isBotOutboundMessage(messageId: string): Promise<boolean> {
