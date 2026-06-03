@@ -22,6 +22,13 @@ export async function buildApp() {
     service: "salao-whatsapp-api",
     provider: env.CHANNEL_PROVIDER
   }));
+
+  app.get("/healthy", async () => ({
+    ok: true,
+    service: "salao-whatsapp-api",
+    provider: env.CHANNEL_PROVIDER
+  }));
+
   await registerLegalRoutes(app);
   await registerEvolutionWebhookRoutes(app, prisma);
   await registerInternalRoutes(app, prisma);
